@@ -240,19 +240,17 @@ class CrosswordCreator():
 
         if var is not None:
             for value in self.order_domain_values(var, assignment):
-                assignment[var] = value
+                new_assignment = assignment.copy()
+                new_assignment[var] = value
 
                 # If it is consistent, then loop through backtrack
-                if self.consistent(assignment):
-                    result = self.backtrack(assignment)
+                if self.consistent(new_assignment):
+                    result = self.backtrack(new_assignment)
 
                     # If the backtrackin goes all the way to the end and
                     # finds a complete assignment, this assignment should be returned
-                    if result != None:
+                    if result is not None:
                         return result
-
-                # If it was not consistent, dekete the variable from assignment
-                del assignment[var]
 
         # If either of the recurrent loops returned None, the final result will be None
         return None
