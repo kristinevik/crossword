@@ -176,19 +176,23 @@ class CrosswordCreator():
         puzzle without conflicting characters); return False otherwise.
         """
 
-        words = set()
+        # Check if all words are unique. Set deletes duplicates, so if the length changes,
+        # then there were duplicates
+        words = assignment.values()
+        if len(words) != len(set(words)):
+            return False
 
+        # Make sure that any neighbour in assignment, that has overlaps with the variable,
+        # has the same character in the overlapping position
         for var, word in assignment.items():
-            if var.length != len(word) or (word in words):
+            if len(word) != var.length:
                 return False
-            words.add(word)
 
-            # Make sure that any neighbour in assignment, that has overlaps with the variable,
-            # has the same character in the overlapping position
             for n in self.crossword.neighbors(var):
-                if n in assignment and (overlap := self.crossword.overlaps.get((var, n))):
-                    if word[overlap[0]] != assignment[n][overlap[1]]:
-                        return False
+                if n not in assignment or not (overlap := self.crossword.overlaps.get((var, n))):
+                    continue
+                if word[overlap[0]] != assignment[n][overlap[1]]:
+                    return False
 
         return True
 
@@ -199,14 +203,18 @@ class CrosswordCreator():
         The first value in the list, for example, should be the one
         that rules out the fewest values among the neighbors of `var`.
         """
-        
+
         return sorted(
-            list(self.domains.get(var)), # Return a list (ref requirement) of all word in var's domain
+            # Return a list (ref requirement) of all word in var's domain
+            list(self.domains.get(var)),
             key=lambda word: sum(
-                word[overlap[0]] != neigbour_word[overlap[1]] # Check if the characters match in the overlapping field
+                # Check if the characters match in the overlapping field
+                word[overlap[0]] != neigbour_word[overlap[1]]
                 for neighbour in self.crossword.neighbors(var)
-                if (overlap := self.crossword.overlaps.get((var, neighbour))) # If there are any overlaps with var and neighbour
-                and neighbour not in assignment # Only count for this neighbour if it does not already have an assigned value
+                # If there are any overlaps with var and neighbour
+                if (overlap := self.crossword.overlaps.get((var, neighbour)))
+                # Only count for this neighbour if it does not already have an assigned value
+                and neighbour not in assignment
                 for neigbour_word in self.domains.get(neighbour)
             )
         )
@@ -245,12 +253,22 @@ class CrosswordCreator():
 
                 # If it is consistent, then loop through backtrack
                 if self.consistent(new_assignment):
-                    result = self.backtrack(new_assignment)
 
-                    # If the backtrackin goes all the way to the end and
-                    # finds a complete assignment, this assignment should be returned
-                    if result is not None:
-                        return result
+                    # Copy the current domains, as ac3/revise will make changes here. These needs to be undone
+                    # if the new_assignment fails
+                    domains_copy = copy.deepcopy(self.domains)
+ 
+                    # Call ac3 again with neighbors to go through arc consistency after making an assignment
+                    if self.ac3([(neighbor, var) for neighbor in self.crossword.neighbors(var)]) == True:
+                        result = self.backtrack(new_assignment)
+
+                        # If the backtrackin goes all the way to the end and
+                        # finds a complete assignment, this assignment should be returned
+                        if result is not None:
+                            return result
+                    
+                    # Restore domains if backtracking
+                    self.domains = domains_copy  
 
         # If either of the recurrent loops returned None, the final result will be None
         return None
